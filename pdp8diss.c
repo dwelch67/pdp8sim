@@ -27,13 +27,9 @@ void show_mri ( unsigned int addr, unsigned int x )
     if(x&(1<<8))
     {
         //indirect
-        printf("[0%04o]",ma);
+        printf("I ");
     }
-    else
-    {
-        //direct
-        printf("0%04o",ma);
-    }
+    printf("0%04o",ma);
 }
 
 int main ( int argc, char *argv[] )
@@ -132,7 +128,59 @@ int main ( int argc, char *argv[] )
                 }
                 case 7:
                 {
-                    printf("UNKNOWN ");
+                    if(x&(1<<8))
+                    {
+                        if((x&9)==0)
+                        {
+                            if(x&(1<<7)) printf("CLA ");
+                            if(x&(1<<6)) printf("SMA ");
+                            if(x&(1<<5)) printf("SZA ");
+                            if(x&(1<<4)) printf("SNL ");
+                            if(x&(1<<2)) printf("OSR ");
+                            if(x&(1<<1)) printf("HLT ");
+                        }
+                        else
+                        if((x&9)==8)
+                        {
+                            if(x&(1<<7)) printf("CLA ");
+                            if(x&(1<<6)) printf("SPA ");
+                            if(x&(1<<5)) printf("SNA ");
+                            if(x&(1<<4)) printf("SZL ");
+                            if(x&(1<<2)) printf("OSR ");
+                            if(x&(1<<1)) printf("HLT ");
+                        }
+                        else
+                        if(x&1)
+                        {
+                            if(x&(1<<7)) printf("CLA ");
+                            if(x&(1<<6)) printf("MQA ");
+                            if(x&(1<<5)) printf("SCA ");
+                            if(x&(1<<4)) printf("MQL ");
+                            if(((x>>1)&7)==0x00) printf("no operation ");
+                            if(((x>>1)&7)==0x01) printf("SCL ");
+                            if(((x>>1)&7)==0x02) printf("MUY ");
+                            if(((x>>1)&7)==0x03) printf("DVI ");
+                            if(((x>>1)&7)==0x04) printf("NMI ");
+                            if(((x>>1)&7)==0x05) printf("SHL ");
+                            if(((x>>1)&7)==0x06) printf("ASR ");
+                            if(((x>>1)&7)==0x07) printf("LSR ");
+                        }
+                        else
+                        {
+                            printf("UNKNOWN ");
+                        }
+                    }
+                    else
+                    {
+                        if(x&(1<<7)) printf("CLA ");
+                        if(x&(1<<6)) printf("CLL ");
+                        if(x&(1<<5)) printf("CMA ");
+                        if(x&(1<<4)) printf("CML ");
+                        if(x&(1<<3)) printf("RAR ");
+                        if(x&(1<<2)) printf("RAL ");
+                        if(x&(1<<1)) printf("BSW ");
+                        if(x&(1<<0)) printf("IAC ");
+                    }
                     break;
                 }
             }
