@@ -136,6 +136,19 @@ int execute_one ( void )
     //maddr=pc; //here or above
     switch((inst>>9)&7)
     {
+        case 0:
+        {
+printf("[0%04o] 0%04o : AND",addr,inst);
+if(inst&0x100) printf(" I");
+            mriadd=mri_addr(inst,maddr);
+printf(" 0%04o\n",mriadd);
+            oper=read_memory(mriadd);
+            lac=read_ac();
+            lac&=oper;
+            lac&=0xFFF;
+            write_ac(lac,1);
+            break;
+        }
         case 1:
         {
 printf("[0%04o] 0%04o : TAD",addr,inst);
