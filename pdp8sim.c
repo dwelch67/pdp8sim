@@ -43,6 +43,7 @@ void write_ac ( unsigned int  data, unsigned int nol )
     {
         ac=data&0x1FFF;
     }
+    printf("ac = 0%04o\n",ac);
 }
 //-------------------------------------------------------------------
 void write_memory ( unsigned int addr, unsigned int data )
@@ -100,10 +101,9 @@ int reset_pdp8 ( void )
     return(0);
 }
 //-------------------------------------------------------------------
-unsigned int mri_read ( unsigned int inst, unsigned int addr )
+unsigned int mri_addr ( unsigned int inst, unsigned int addr )
 {
     unsigned int fulladdr;
-    unsigned int data;
 
     if(inst&0x80)
     {
@@ -114,12 +114,11 @@ unsigned int mri_read ( unsigned int inst, unsigned int addr )
         fulladdr=0;
     }
     fulladdr|=inst&0x7F;
-    data=read_memory(fulladdr);
     if(inst&0x100)
     {
-        data=read_memory(data);
+        fulladdr=read_memory(fulladdr);
     }
-    return(data);
+    return(fulladdr);
 }
 //-------------------------------------------------------------------
 int execute_one ( void )
@@ -129,6 +128,7 @@ int execute_one ( void )
     unsigned int oper;
     unsigned int addr;
     unsigned int maddr;
+    unsigned int mriadd;
 
     addr=pc;
     maddr=pc;
@@ -136,159 +136,354 @@ int execute_one ( void )
     //maddr=pc; //here or above
     switch((inst>>9)&7)
     {
-        case 0:
+        case 1:
         {
-printf("[0%04o] 0%04o : TAD\n",addr,inst);
+printf("[0%04o] 0%04o : TAD",addr,inst);
+if(inst&0x100) printf(" I");
+            mriadd=mri_addr(inst,maddr);
+printf(" 0%04o\n",mriadd);
+            oper=read_memory(mriadd);
+            oper&=ACMASK;
             lac=read_ac();
             lac&=LACMASK;
-            oper=mri_read(inst,maddr);
-            oper&=ACMASK;
             lac+=oper;
             write_ac(lac,0);
             break;
         }
+        case 2:
+        {
+printf("[0%04o] 0%04o : ISZ",addr,inst);
+if(inst&0x100) printf(" I");
+            mriadd=mri_addr(inst,maddr);
+printf(" 0%04o\n",mriadd);
+            oper=read_memory(mriadd);
+            oper++;
+            oper&=0xFFF;
+            if(oper==0)
+            {
+                pc++;
+            }
+            write_memory(mriadd,oper);
+            break;
+        }
+        case 3:
+        {
+printf("[0%04o] 0%04o : DCA",addr,inst);
+if(inst&0x100) printf(" I");
+            mriadd=mri_addr(inst,maddr);
+printf(" 0%04o\n",mriadd);
+            lac=read_ac();
+            lac&=0xFFF;
+            write_memory(mriadd,lac);
+            write_ac(0,1);
+            break;
+        }
+        case 5:
+        {
+printf("[0%04o] 0%04o : JMP",addr,inst);
+if(inst&0x100) printf(" I");
+            mriadd=mri_addr(inst,maddr);
+            pc=mriadd&0xFFF;
+printf(" 0%04o\n",pc);
+            break;
+        }
         case 7:
         {
+            if(inst&0x100)
+            {
+                if(inst&1) //group 3?
+                {
+                }
+                else //group 2
+                {
 printf("[0%04o] 0%04o : ",addr,inst);
-            if(inst==07000)
-            {
-printf(" NOP\n");
-                break;
-            }
-            if(inst&0200)
-            {
-printf(" CLA"); //clear AC
-            }
-            if(inst&0100)
-            {
-printf(" CLL"); //clear link bit
-            }
-            if(inst&0040)
-            {
-printf(" CMA"); //complement ac
-            }
-            if(inst&0020)
-            {
-printf(" CML"); //complement link bit
-            }
-            if(inst&0010)
-            {
-printf(" IAC"); //increment AC
-            }
-            if(inst&0010)
-            {
-                if(inst&0002)
-                {
-printf(" RTR"); //rotate lac right one
-                }
-                else
-                {
-printf(" RAR"); //rotate lac right one
-                }
-            }
-            if(inst&0004)
-            {
-                if(inst&0002)
-                {
-printf(" RTL"); //rotate lac left one
-                }
-                else
-                {
-printf(" RAL"); //rotate lac left one
-                }
-            }
+                    if(inst==07400)
+                    {
+printf(" NOP??\n");
+                        break;
+                    }
+                    if(inst&0010)
+                    {
+                        if(inst&0100)
+                        {
+printf(" SPA"); //skip on pos ac or ac = 0
+                        }
+                        if(inst&0040)
+                        {
+printf(" SNA"); //skip on non zero ac
+                        }
+                        if(inst&0020)
+                        {
+printf(" SZL"); //skip on zero link
+                        }
+                        if((inst&0160)==0)
+                        {
+printf(" SKP"); //unconditional skip
+                        }
+                    }
+                    else
+                    {
+                        if(inst&0100)
+                        {
+printf(" SMA"); //skip on minus ac
+                        }
+                        if(inst&0040)
+                        {
+printf(" SZA"); //skip on zero ac
+                        }
+                        if(inst&0020)
+                        {
+printf(" SNL"); //skip on non zero link
+                        }
+                    }
+                    if(inst&0200)
+                    {
+printf(" CLA"); //clear lac
+                    }
+                    if(inst&0004)
+                    {
+printf(" OSR"); //or switch with ac
+                    }
+                    if(inst&0002)
+                    {
+printf(" HLT"); //halt
+                    }
 printf("\n");
 
 
-            if(inst&0200)
-            {
-//printf(" CLA"); //clear AC
-                if(inst&0100) //clear link bit
-                {
-                    write_ac(0,0);
-                }
-                else
-                {
-                    write_ac(0,1);
-                }
+                    if(inst==07400)
+                    {
+//printf(" NOP??\n");
+                        break;
+                    }
+                    if(inst&0010)
+                    {
+                        if(inst&0100)
+                        {
+//printf(" SPA"); //skip on pos ac or ac = 0
+                            lac=read_ac();
+                            if((lac&0x800)==0)
+                            {
+                                pc++;
+                            }
+                        }
+                        if(inst&0040)
+                        {
+//printf(" SNA"); //skip on non zero ac
+                            lac=read_ac();
+                            if((lac&0xFFF)!=0)
+                            {
+                                pc++;
+                            }
+                        }
+                        if(inst&0020)
+                        {
+//printf(" SZL"); //skip on zero link
+                            lac=read_ac();
+                            if((lac&0x1000)==0)
+                            {
+                                pc++;
+                            }
+                        }
+                        if((inst&0160)==0)
+                        {
+//printf(" SKP"); //unconditional skip
+                            pc++;
+                        }
+                    }
+                    else
+                    {
+                        if(inst&0100)
+                        {
+//printf(" SMA"); //skip on minus ac
+                            lac=read_ac();
+                            if((lac&0x800)!=0)
+                            {
+                                pc++;
+                            }
+                        }
+                        if(inst&0040)
+                        {
+//printf(" SZA"); //skip on zero ac
+                            lac=read_ac();
+                            if((lac&0xFFF)==0)
+                            {
+                                pc++;
+                            }
+                        }
+                        if(inst&0020)
+                        {
+//printf(" SNL"); //skip on non zero link
+                            lac=read_ac();
+                            if((lac&0x1000)!=0)
+                            {
+                                pc++;
+                            }
+                        }
+                    }
+                    if(inst&0200)
+                    {
+//printf(" CLA"); //clear lac
+                        write_ac(0,0);
+                    }
+                    if(inst&0004)
+                    {
+//printf(" OSR"); //or switch with ac
+                    }
+                    if(inst&0002)
+                    {
+//printf(" HLT"); //halt
+                        return(1);
+                    }
+
+
+
+
+
+
+                } //end of group 2
             }
-            if(inst&0100)
+            else //group 1
             {
-//printf(" CLL"); //clear link bit
-                if(inst&0200) //clear ac
+printf("[0%04o] 0%04o : ",addr,inst);
+                if(inst==07000)
                 {
-                    //write_ac(0,0); done above
+printf(" NOP\n");
+                    break;
                 }
-                else
+                if(inst&0200)
                 {
-                    lac=read_ac();
-                    lac&=0x0FFF;
-                    write_ac(lac,0);
+printf(" CLA"); //clear AC
                 }
-            }
-            if(inst&0040)
-            {
-//printf(" CMA"); //complement ac
-                if(inst&0020) //complement link bit
+                if(inst&0100)
                 {
-                    lac=read_ac();
-                    lac=lac^0x1FFF;
-                    write_ac(lac,0);
+printf(" CLL"); //clear link bit
                 }
-                else
+                if(inst&0040)
                 {
+printf(" CMA"); //complement ac
+                }
+                if(inst&0020)
+                {
+printf(" CML"); //complement link bit
+                }
+                if(inst&0010)
+                {
+printf(" IAC"); //increment AC
+                }
+                if(inst&0010)
+                {
+                    if(inst&0002)
+                    {
+printf(" RTR"); //rotate lac right one
+                    }
+                    else
+                    {
+printf(" RAR"); //rotate lac right one
+                    }
+                }
+                if(inst&0004)
+                {
+                    if(inst&0002)
+                    {
+printf(" RTL"); //rotate lac left one
+                    }
+                    else
+                    {
+printf(" RAL"); //rotate lac left one
+                    }
+                }
+printf("\n");
+                if(inst&0200)
+                {
+    //printf(" CLA"); //clear AC
+                    if(inst&0100) //clear link bit
+                    {
+                        write_ac(0,0);
+                    }
+                    else
+                    {
+                        write_ac(0,1);
+                    }
+                }
+                if(inst&0100)
+                {
+    //printf(" CLL"); //clear link bit
+                    if(inst&0200) //clear ac
+                    {
+                        //write_ac(0,0); done above
+                    }
+                    else
+                    {
+                        lac=read_ac();
+                        lac&=0x0FFF;
+                        write_ac(lac,0);
+                    }
+                }
+                if(inst&0040)
+                {
+    //printf(" CMA"); //complement ac
+                    if(inst&0020) //complement link bit
+                    {
+                        lac=read_ac();
+                        lac=lac^0x1FFF;
+                        write_ac(lac,0);
+                    }
+                    else
+                    {
+                        lac=read_ac();
+                        lac=lac^0x0FFF;
+                        write_ac(lac,1);
+                    }
+                }
+                if(inst&0020)
+                {
+    //printf(" CML"); //complement link bit
+                    if(inst&0040) //complement ac
+                    {
+                        //lac=read_ac();
+                        //lac=lac^0x1FFF;
+                        //write_ac(lac,0);
+                    }
+                    else
+                    {
+                        lac=read_ac();
+                        lac=lac^0x1000;
+                        write_ac(lac,0);
+                    }
+                }
+                if(inst&0010)
+                {
+    //printf(" IAC"); //increment AC
                     lac=read_ac();
-                    lac=lac^0x0FFF;
+                    lac=(lac+1)&0x0FFF;
                     write_ac(lac,1);
                 }
-            }
-            if(inst&0020)
-            {
-//printf(" CML"); //complement link bit
-                if(inst&0040) //complement ac
+                if(inst&0010)
                 {
-                    //lac=read_ac();
-                    //lac=lac^0x1FFF;
-                    //write_ac(lac,0);
+                    if(inst&0002)
+                    {
+    //printf(" RTR"); //rotate lac right one
+                        printf("TODO\n");
+                    }
+                    else
+                    {
+    //printf(" RAR"); //rotate lac right one
+                        printf("TODO\n");
+                    }
                 }
-                else
+                if(inst&0004)
                 {
-                    lac=read_ac();
-                    lac=lac^0x1000;
-                    write_ac(lac,0);
-                }
-            }
-            if(inst&0010)
-            {
-//printf(" IAC"); //increment AC
-                lac=read_ac();
-                lac=(lac+1)&0x0FFF;
-                write_ac(lac,1);
-            }
-            if(inst&0010)
-            {
-                if(inst&0002)
-                {
-//printf(" RTR"); //rotate lac right one
-                    printf("TODO\n");
-                }
-                else
-                {
-//printf(" RAR"); //rotate lac right one
-                    printf("TODO\n");
-                }
-            }
-            if(inst&0004)
-            {
-                if(inst&0002)
-                {
-//printf(" RTL"); //rotate lac left one
-                    printf("TODO\n");
-                }
-                else
-                {
-//printf(" RAL"); //rotate lac left one
-                    printf("TODO\n");
+                    if(inst&0002)
+                    {
+    //printf(" RTL"); //rotate lac left one
+                        printf("TODO\n");
+                    }
+                    else
+                    {
+    //printf(" RAL"); //rotate lac left one
+                        printf("TODO\n");
+                    }
                 }
             }
             break;
@@ -465,7 +660,7 @@ int main ( int argc, char *argv[] )
     ra=0;
     while(1)
     {
-        if(++ra>20) break;
+        if(++ra>120) break;
         if(execute_one()) break;
     }
 
