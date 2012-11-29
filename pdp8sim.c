@@ -116,7 +116,12 @@ unsigned int mri_addr ( unsigned int inst, unsigned int addr )
     fulladdr|=inst&0x7F;
     if(inst&0x100)
     {
+printf(" I 0%04o\n",fulladdr);
         fulladdr=read_memory(fulladdr);
+    }
+    else
+    {
+printf(" 0%04o\n",fulladdr);
     }
     return(fulladdr);
 }
@@ -139,9 +144,7 @@ int execute_one ( void )
         case 0:
         {
 printf("[0%04o] 0%04o : AND",addr,inst);
-if(inst&0x100) printf(" I");
             mriadd=mri_addr(inst,maddr);
-printf(" 0%04o\n",mriadd);
             oper=read_memory(mriadd);
             lac=read_ac();
             lac&=oper;
@@ -152,9 +155,7 @@ printf(" 0%04o\n",mriadd);
         case 1:
         {
 printf("[0%04o] 0%04o : TAD",addr,inst);
-if(inst&0x100) printf(" I");
             mriadd=mri_addr(inst,maddr);
-printf(" 0%04o\n",mriadd);
             oper=read_memory(mriadd);
             oper&=ACMASK;
             lac=read_ac();
@@ -166,9 +167,7 @@ printf(" 0%04o\n",mriadd);
         case 2:
         {
 printf("[0%04o] 0%04o : ISZ",addr,inst);
-if(inst&0x100) printf(" I");
             mriadd=mri_addr(inst,maddr);
-printf(" 0%04o\n",mriadd);
             oper=read_memory(mriadd);
             oper++;
             oper&=0xFFF;
@@ -182,22 +181,26 @@ printf(" 0%04o\n",mriadd);
         case 3:
         {
 printf("[0%04o] 0%04o : DCA",addr,inst);
-if(inst&0x100) printf(" I");
             mriadd=mri_addr(inst,maddr);
-printf(" 0%04o\n",mriadd);
             lac=read_ac();
             lac&=0xFFF;
             write_memory(mriadd,lac);
             write_ac(0,1);
             break;
         }
+        case 4:
+        {
+printf("[0%04o] 0%04o : JMS",addr,inst);
+            mriadd=mri_addr(inst,maddr);
+            write_memory(mriadd,pc&0xFFF);
+            pc=(mriadd+1)&0xFFF;
+            break;
+        }
         case 5:
         {
 printf("[0%04o] 0%04o : JMP",addr,inst);
-if(inst&0x100) printf(" I");
             mriadd=mri_addr(inst,maddr);
             pc=mriadd&0xFFF;
-printf(" 0%04o\n",pc);
             break;
         }
         case 7:
